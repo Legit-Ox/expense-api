@@ -1,0 +1,27 @@
+name: expense-api
+services:
+  - name: expense-api
+    source_dir: /
+    github:
+      repo: yourusername/expense-api
+      branch: main
+    dockerfile_path: Dockerfile
+    environment_slug: go
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /health
+    envs:
+      - key: ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: DB_URL
+        scope: RUN_AND_BUILD_TIME
+        value: ${db.DATABASE_URL}
+
+databases:
+  - name: db
+    engine: PG
+    version: "15"
+    production: false 
