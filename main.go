@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
 	"expense-api/database"
 	"expense-api/handlers"
@@ -18,11 +19,6 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using system environment variables")
 	}
-
-	// Initialize database
-	database.Connect()
-	database.Migrate()
-	database.SeedDefaultCategories()
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -45,11 +41,35 @@ func main() {
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 
-	// Health check endpoint
+	// Health check endpoint (works without database)
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
-			"status":  "healthy",
-			"message": "Expense API is running",
+			"status":    "healthy",
+			"message":   "Expense API is running",
+			"timestamp": time.Now().UTC(),
+			"database":  "connecting...",
+		})
+	})
+
+	// Database status endpoint
+	app.Get("/db-status", func(c *fiber.Ctx) error {
+		if database.GetDB() != nil {
+			sqlDB, err := database.GetDB().DB()
+			if err == nil {
+				err = sqlDB.Ping()
+				if err == nil {
+					return c.JSON(fiber.Map{
+						"status":    "connected",
+						"message":   "Database is connected and responding",
+						"timestamp": time.Now().UTC(),
+					})
+				}
+			}
+		}
+		return c.JSON(fiber.Map{
+			"status":    "disconnected",
+			"message":   "Database is not connected",
+			"timestamp": time.Now().UTC(),
 		})
 	})
 
@@ -81,5 +101,24 @@ func main() {
 	}
 
 	log.Printf("Server starting on port %s", port)
-	log.Fatal(app.Listen(":" + port))
+
+	// Start server in a goroutine
+	go func() {
+		log.Fatal(app.Listen(":" + port))
+	}()
+
+	// Wait a moment for server to start
+	time.Sleep(2 * time.Second)
+
+	// Initialize database in background (non-blocking)
+	go func() {
+		log.Println("Attempting to connect to database...")
+		database.Connect()
+		database.Migrate()
+		database.SeedDefaultCategories()
+		log.Println("Database initialization completed")
+	}()
+
+	// Keep main thread alive
+	select {}
 }

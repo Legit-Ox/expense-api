@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: expense-api-dev
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: DB_URL
+        value: "sqlite:///expense.db"
+      - key: PORT
+        value: 8080
+      - key: ENV
+        value: development
+    healthCheckPath: /health
+    autoDeploy: true 
