@@ -54,4 +54,25 @@ type AggregateResponse struct {
 	TotalIncome   float64            `json:"total_income"`
 	TotalExpenses float64            `json:"total_expenses"`
 	NetAmount     float64            `json:"net_amount"`
+}
+
+// BulkTransactionRequest represents a request to create multiple transactions
+type BulkTransactionRequest struct {
+	Transactions []Transaction `json:"transactions" validate:"required,min=1,max=100"`
+}
+
+// BulkTransactionResponse represents the response for bulk transaction creation
+type BulkTransactionResponse struct {
+	Success      []TransactionResponse `json:"success"`
+	Failed       []BulkTransactionError `json:"failed"`
+	TotalCount   int                   `json:"total_count"`
+	SuccessCount int                   `json:"success_count"`
+	FailedCount  int                   `json:"failed_count"`
+}
+
+// BulkTransactionError represents an error for a specific transaction in bulk operation
+type BulkTransactionError struct {
+	Index       int    `json:"index"`
+	Transaction Transaction `json:"transaction"`
+	Error       string `json:"error"`
 } 

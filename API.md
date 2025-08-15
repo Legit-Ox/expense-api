@@ -68,6 +68,100 @@ Create a new transaction.
 - `400 Bad Request`: Invalid data or category not found
 - `500 Internal Server Error`: Database error
 
+#### POST /api/transactions/bulk
+Create multiple transactions in a single request.
+
+**Request Body:**
+```json
+{
+  "transactions": [
+    {
+      "amount": 50.0,
+      "type": "expense",
+      "category_id": 1,
+      "description": "Lunch",
+      "date": "2024-01-15T12:00:00Z"
+    },
+    {
+      "amount": 25.0,
+      "type": "expense",
+      "category_id": 2,
+      "description": "Coffee"
+    },
+    {
+      "amount": 1000.0,
+      "type": "income",
+      "category_id": 3,
+      "description": "Freelance payment"
+    }
+  ]
+}
+```
+
+**Fields:**
+- `transactions` (array, required): Array of transaction objects (max 100)
+  - Each transaction object has the same fields as the single transaction POST endpoint
+
+**Response (201 Created - All Success):**
+```json
+{
+  "success": [
+    {
+      "id": 1,
+      "amount": 50.0,
+      "type": "expense",
+      "category_id": 1,
+      "category": "Food",
+      "description": "Lunch",
+      "date": "2024-01-15T12:00:00Z",
+      "created_at": "2024-01-15T12:00:00Z"
+    }
+  ],
+  "failed": [],
+  "total_count": 3,
+  "success_count": 3,
+  "failed_count": 0
+}
+```
+
+**Response (207 Multi-Status - Partial Success):**
+```json
+{
+  "success": [
+    {
+      "id": 1,
+      "amount": 50.0,
+      "type": "expense",
+      "category_id": 1,
+      "category": "Food",
+      "description": "Lunch",
+      "date": "2024-01-15T12:00:00Z",
+      "created_at": "2024-01-15T12:00:00Z"
+    }
+  ],
+  "failed": [
+    {
+      "index": 1,
+      "transaction": {
+        "amount": 25.0,
+        "type": "expense",
+        "category_id": 999,
+        "description": "Coffee"
+      },
+      "error": "Category not found"
+    }
+  ],
+  "total_count": 2,
+  "success_count": 1,
+  "failed_count": 1
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid request body, no transactions provided, or all transactions failed
+- `207 Multi-Status`: Some transactions succeeded, some failed
+- `500 Internal Server Error`: Database error
+
 #### GET /api/transactions
 Get all transactions with optional filtering.
 
