@@ -304,6 +304,111 @@ func GetTransactionsByDateRange(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
+// CreateBulkTransactions handles POST /transactions/bulk
+func CreateBulkTransactions(c *fiber.Ctx) error {
+	var request models.BulkTransactionRequest
+
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Validate request
+	if len(request.Transactions) == 0 {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "At least one transaction is required",
+		})
+	}
+
+	if len(request.Transactions) > 100 {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Maximum 100 transactions allowed per bulk request",
+		})
+	}
+
+	var response models.BulkTransactionResponse
+	response.TotalCount = len(request.Transactions)
+
+	// Process each transaction
+	for i, transaction := range request.Transactions {
+		// Set default date if not provided
+		if transaction.Date.IsZero() {
+			transaction.Date = time.Now()
+		}
+
+		// Validate transaction type
+		if transaction.Type != "expense" && transaction.Type != "income" {
+			response.Failed = append(response.Failed, models.BulkTransactionError{
+				Index:       i,
+				Transaction: transaction,
+				Error:       "Type must be either 'expense' or 'income'",
+			})
+			continue
+		}
+
+		// Verify category exists and matches type
+		var category models.Category
+		if err := database.DB.First(&category, transaction.CategoryID).Error; err != nil {
+			response.Failed = append(response.Failed, models.BulkTransactionError{
+				Index:       i,
+				Transaction: transaction,
+				Error:       "Category not found",
+			})
+			continue
+		}
+
+		if category.Type != transaction.Type {
+			response.Failed = append(response.Failed, models.BulkTransactionError{
+				Index:       i,
+				Transaction: transaction,
+				Error:       "Category type does not match transaction type",
+			})
+			continue
+		}
+
+		// Create transaction
+		if err := database.DB.Create(&transaction).Error; err != nil {
+			response.Failed = append(response.Failed, models.BulkTransactionError{
+				Index:       i,
+				Transaction: transaction,
+				Error:       "Failed to create transaction: " + err.Error(),
+			})
+			continue
+		}
+
+		// Load category for response
+		database.DB.Preload("Category").First(&transaction, transaction.ID)
+
+		// Add to success list
+		response.Success = append(response.Success, models.TransactionResponse{
+			ID:          transaction.ID,
+			Amount:      transaction.Amount,
+			Type:        transaction.Type,
+			CategoryID:  transaction.CategoryID,
+			Category:    transaction.Category.Name,
+			Description: transaction.Description,
+			Date:        transaction.Date,
+			CreatedAt:   transaction.CreatedAt,
+		})
+	}
+
+	response.SuccessCount = len(response.Success)
+	response.FailedCount = len(response.Failed)
+
+	// Return appropriate status code
+	statusCode := 201
+	if response.FailedCount > 0 {
+		if response.SuccessCount == 0 {
+			statusCode = 400 // All failed
+		} else {
+			statusCode = 207 // Partial success (Multi-Status)
+		}
+	}
+
+	return c.Status(statusCode).JSON(response)
+}
+
 // GetSummary handles GET /transactions/summary
 func GetSummary(c *fiber.Ctx) error {
 	// Get total counts
