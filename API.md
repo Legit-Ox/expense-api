@@ -30,6 +30,7 @@ Create a new transaction.
 **Request Body:**
 ```json
 {
+  "transaction_id": "TXN123456789",
   "amount": 50.0,
   "type": "expense",
   "category_id": 1,
@@ -39,6 +40,7 @@ Create a new transaction.
 ```
 
 **Fields:**
+- `transaction_id` (string, optional): Bank transaction reference number
 - `amount` (float, required): Transaction amount
 - `type` (string, required): Either "expense" or "income"
 - `category_id` (integer, required): ID of the category
@@ -49,6 +51,7 @@ Create a new transaction.
 ```json
 {
   "id": 1,
+  "transaction_id": "TXN123456789",
   "amount": 50.0,
   "type": "expense",
   "category_id": 1,
@@ -76,6 +79,7 @@ Create multiple transactions in a single request.
 {
   "transactions": [
     {
+      "transaction_id": "TXN123456789",
       "amount": 50.0,
       "type": "expense",
       "category_id": 1,
@@ -83,12 +87,14 @@ Create multiple transactions in a single request.
       "date": "2024-01-15T12:00:00Z"
     },
     {
+      "transaction_id": "TXN987654321",
       "amount": 25.0,
       "type": "expense",
       "category_id": 2,
       "description": "Coffee"
     },
     {
+      "transaction_id": "TXN555666777",
       "amount": 1000.0,
       "type": "income",
       "category_id": 3,
@@ -178,6 +184,7 @@ Get all transactions with optional filtering.
 [
   {
     "id": 1,
+    "transaction_id": "TXN123456789",
     "amount": 50.0,
     "type": "expense",
     "category_id": 1,
@@ -213,6 +220,7 @@ Get a specific transaction by ID.
 ```json
 {
   "id": 1,
+  "transaction_id": "TXN123456789",
   "amount": 50.0,
   "type": "expense",
   "category_id": 1,
@@ -238,6 +246,7 @@ Update an existing transaction.
 ```
 
 **Fields (all optional):**
+- `transaction_id` (string): Bank transaction reference number
 - `amount` (float): Transaction amount
 - `type` (string): Either "expense" or "income"
 - `category_id` (integer): ID of the category
@@ -299,6 +308,7 @@ Get transactions within a specific date range.
 [
   {
     "id": 1,
+    "transaction_id": "TXN123456789",
     "amount": 50.0,
     "type": "expense",
     "category_id": 1,
@@ -500,6 +510,7 @@ Currently no pagination is implemented. All endpoints return all results.
    curl -X POST http://localhost:8080/api/transactions \
      -H "Content-Type: application/json" \
      -d '{
+       "transaction_id": "TXN789012345",
        "amount": 25.50,
        "type": "expense",
        "category_id": 1,
@@ -571,6 +582,7 @@ const response = await fetch('http://localhost:8080/api/transactions', {
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
+    transaction_id: 'TXN123456789',
     amount: 50.0,
     type: 'expense',
     category_id: 1,

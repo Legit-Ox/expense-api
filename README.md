@@ -72,6 +72,7 @@ The API now provides full CRUD (Create, Read, Update, Delete) operations for bot
 ```json
 {
   "id": 1,
+  "transaction_id": "TXN123456789",
   "amount": 50.0,
   "type": "expense",
   "category_id": 1,
@@ -137,6 +138,7 @@ The API now provides full CRUD (Create, Read, Update, Delete) operations for bot
 curl -X POST http://localhost:8080/api/transactions \
   -H "Content-Type: application/json" \
   -d '{
+    "transaction_id": "TXN123456789",
     "amount": 50.0,
     "type": "expense",
     "category_id": 1,

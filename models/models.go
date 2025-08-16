@@ -8,15 +8,16 @@ import (
 
 // Transaction represents an expense or income transaction
 type Transaction struct {
-	ID          uint      `json:"id" gorm:"primaryKey"`
-	Amount      float64   `json:"amount" gorm:"not null"`
-	Type        string    `json:"type" gorm:"not null;check:type IN ('expense', 'income')"`
-	CategoryID  uint      `json:"category_id" gorm:"not null"`
-	Category    Category  `json:"category" gorm:"foreignKey:CategoryID"`
-	Description string    `json:"description" gorm:"not null"`
-	Date        time.Time `json:"date" gorm:"not null"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID            uint      `json:"id" gorm:"primaryKey"`
+	TransactionID string    `json:"transaction_id" gorm:"index"`
+	Amount        float64   `json:"amount" gorm:"not null"`
+	Type          string    `json:"type" gorm:"not null;check:type IN ('expense', 'income')"`
+	CategoryID    uint      `json:"category_id" gorm:"not null"`
+	Category      Category  `json:"category" gorm:"foreignKey:CategoryID"`
+	Description   string    `json:"description" gorm:"not null"`
+	Date          time.Time `json:"date" gorm:"not null"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // Category represents a transaction category
@@ -31,14 +32,15 @@ type Category struct {
 
 // TransactionResponse represents the response structure for transactions
 type TransactionResponse struct {
-	ID          uint      `json:"id"`
-	Amount      float64   `json:"amount"`
-	Type        string    `json:"type"`
-	CategoryID  uint      `json:"category_id"`
-	Category    string    `json:"category"`
-	Description string    `json:"description"`
-	Date        time.Time `json:"date"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID            uint      `json:"id"`
+	TransactionID string    `json:"transaction_id"`
+	Amount        float64   `json:"amount"`
+	Type          string    `json:"type"`
+	CategoryID    uint      `json:"category_id"`
+	Category      string    `json:"category"`
+	Description   string    `json:"description"`
+	Date          time.Time `json:"date"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // CategoryResponse represents the response structure for categories
