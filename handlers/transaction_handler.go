@@ -413,6 +413,72 @@ func CreateBulkTransactions(c *fiber.Ctx) error {
 	return c.Status(statusCode).JSON(response)
 }
 
+// UpdateTransactionCategory handles PATCH /transactions/:id/category
+func UpdateTransactionCategory(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	var transaction models.Transaction
+	if err := database.DB.First(&transaction, id).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "Transaction not found",
+		})
+	}
+
+	var request struct {
+		CategoryID uint `json:"category_id" validate:"required"`
+	}
+
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	if request.CategoryID == 0 {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "category_id is required",
+		})
+	}
+
+	// Verify new category exists and matches transaction type
+	var newCategory models.Category
+	if err := database.DB.First(&newCategory, request.CategoryID).Error; err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Category not found",
+		})
+	}
+
+	if newCategory.Type != transaction.Type {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Category type does not match transaction type",
+		})
+	}
+
+	// Update the category
+	if err := database.DB.Model(&transaction).Update("category_id", request.CategoryID).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to update transaction category",
+		})
+	}
+
+	// Load updated transaction with new category
+	database.DB.Preload("Category").First(&transaction, transaction.ID)
+
+	response := models.TransactionResponse{
+		ID:            transaction.ID,
+		TransactionID: transaction.TransactionID,
+		Amount:        transaction.Amount,
+		Type:          transaction.Type,
+		CategoryID:    transaction.CategoryID,
+		Category:      transaction.Category.Name,
+		Description:   transaction.Description,
+		Date:          transaction.Date,
+		CreatedAt:     transaction.CreatedAt,
+	}
+
+	return c.JSON(response)
+}
+
 // GetSummary handles GET /transactions/summary
 func GetSummary(c *fiber.Ctx) error {
 	// Get total counts

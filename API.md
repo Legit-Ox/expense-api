@@ -277,6 +277,39 @@ Update an existing transaction.
 - `404 Not Found`: Transaction not found
 - `500 Internal Server Error`: Database error
 
+#### PATCH /api/transactions/:id/category
+Update the category of an existing transaction.
+
+**Request Body:**
+```json
+{
+  "category_id": 2
+}
+```
+
+**Fields:**
+- `category_id` (integer, required): ID of the new category
+
+**Response (200 OK):**
+```json
+{
+  "id": 1,
+  "transaction_id": "TXN123456789",
+  "amount": 50.0,
+  "type": "expense",
+  "category_id": 2,
+  "category": "Transport",
+  "description": "Lunch",
+  "date": "2024-01-15T12:00:00Z",
+  "created_at": "2024-01-15T12:00:00Z"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid data, category not found, or category type mismatch
+- `404 Not Found`: Transaction not found
+- `500 Internal Server Error`: Database error
+
 #### DELETE /api/transactions/:id
 Delete a transaction.
 
@@ -480,7 +513,7 @@ Must be unique across all categories.
 
 The API supports CORS for cross-origin requests:
 - All origins allowed (`*`)
-- Methods: GET, POST, PUT, DELETE, OPTIONS
+- Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
 - Headers: Origin, Content-Type, Accept, Authorization
 
 ## Rate Limiting
@@ -543,22 +576,31 @@ Currently no pagination is implemented. All endpoints return all results.
      }'
    ```
 
-8. **Delete a transaction:**
+8. **Change transaction category:**
+   ```bash
+   curl -X PATCH http://localhost:8080/api/transactions/1/category \
+     -H "Content-Type: application/json" \
+     -d '{
+       "category_id": 2
+     }'
+   ```
+
+9. **Delete a transaction:**
    ```bash
    curl -X DELETE http://localhost:8080/api/transactions/1
    ```
 
-9. **Get transactions by date range:**
-   ```bash
-   curl "http://localhost:8080/api/transactions/date-range?start_date=2024-01-01&end_date=2024-01-31"
-   ```
+10. **Get transactions by date range:**
+    ```bash
+    curl "http://localhost:8080/api/transactions/date-range?start_date=2024-01-01&end_date=2024-01-31"
+    ```
 
-10. **Get a specific category:**
+11. **Get a specific category:**
     ```bash
     curl http://localhost:8080/api/categories/1
     ```
 
-11. **Update a category:**
+12. **Update a category:**
     ```bash
     curl -X PUT http://localhost:8080/api/categories/1 \
       -H "Content-Type: application/json" \
@@ -567,7 +609,7 @@ Currently no pagination is implemented. All endpoints return all results.
       }'
     ```
 
-12. **Delete a category (only if no transactions exist):**
+13. **Delete a category (only if no transactions exist):**
     ```bash
     curl -X DELETE http://localhost:8080/api/categories/1
     ```

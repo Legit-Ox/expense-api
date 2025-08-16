@@ -37,7 +37,7 @@ func main() {
 	app.Use(logger.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
-		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 
@@ -85,6 +85,7 @@ func main() {
 	transactions.Get("/date-range", handlers.GetTransactionsByDateRange)
 	transactions.Get("/:id", handlers.GetTransaction)
 	transactions.Put("/:id", handlers.UpdateTransaction)
+	transactions.Patch("/:id/category", handlers.UpdateTransactionCategory)
 	transactions.Delete("/:id", handlers.DeleteTransaction)
 
 	// Category routes
