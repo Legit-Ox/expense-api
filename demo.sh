@@ -69,7 +69,7 @@ api_call "GET" "http://localhost:8080/api/categories/10" "" "3. Getting the new 
 api_call "PUT" "http://localhost:8080/api/categories/10" '{"name": "Movies & Entertainment"}' "4. Updating the category"
 
 # 5. Create a transaction using the new category
-api_call "POST" "http://localhost:8080/api/transactions" '{"amount": 25.50, "type": "expense", "category_id": 10, "description": "Movie tickets"}' "5. Creating a transaction"
+api_call "POST" "http://localhost:8080/api/transactions" '{"transaction_id": "TXN789012345", "amount": 25.50, "type": "expense", "category_id": 10, "description": "Movie tickets"}' "5. Creating a transaction"
 
 # 6. Get all transactions
 api_call "GET" "http://localhost:8080/api/transactions" "" "6. Getting all transactions"
@@ -78,7 +78,7 @@ api_call "GET" "http://localhost:8080/api/transactions" "" "6. Getting all trans
 api_call "GET" "http://localhost:8080/api/transactions/2" "" "7. Getting specific transaction"
 
 # 8. Update the transaction
-api_call "PUT" "http://localhost:8080/api/transactions/2" '{"amount": 30.00, "description": "Movie tickets and popcorn"}' "8. Updating transaction"
+api_call "PUT" "http://localhost:8080/api/transactions/2" '{"transaction_id": "TXN789012345-UPD", "amount": 30.00, "description": "Movie tickets and popcorn"}' "8. Updating transaction"
 
 # 9. Test date range filtering
 api_call "GET" "http://localhost:8080/api/transactions/date-range?start_date=2025-08-01&end_date=2025-08-31" "" "9. Getting transactions by date range (August 2025)"

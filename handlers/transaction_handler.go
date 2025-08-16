@@ -82,14 +82,15 @@ func GetTransactions(c *fiber.Ctx) error {
 	var response []models.TransactionResponse
 	for _, t := range transactions {
 		response = append(response, models.TransactionResponse{
-			ID:          t.ID,
-			Amount:      t.Amount,
-			Type:        t.Type,
-			CategoryID:  t.CategoryID,
-			Category:    t.Category.Name,
-			Description: t.Description,
-			Date:        t.Date,
-			CreatedAt:   t.CreatedAt,
+			ID:            t.ID,
+			TransactionID: t.TransactionID,
+			Amount:        t.Amount,
+			Type:          t.Type,
+			CategoryID:    t.CategoryID,
+			Category:      t.Category.Name,
+			Description:   t.Description,
+			Date:          t.Date,
+			CreatedAt:     t.CreatedAt,
 		})
 	}
 
@@ -143,14 +144,15 @@ func GetTransaction(c *fiber.Ctx) error {
 	}
 
 	response := models.TransactionResponse{
-		ID:          transaction.ID,
-		Amount:      transaction.Amount,
-		Type:        transaction.Type,
-		CategoryID:  transaction.CategoryID,
-		Category:    transaction.Category.Name,
-		Description: transaction.Description,
-		Date:        transaction.Date,
-		CreatedAt:   transaction.CreatedAt,
+		ID:            transaction.ID,
+		TransactionID: transaction.TransactionID,
+		Amount:        transaction.Amount,
+		Type:          transaction.Type,
+		CategoryID:    transaction.CategoryID,
+		Category:      transaction.Category.Name,
+		Description:   transaction.Description,
+		Date:          transaction.Date,
+		CreatedAt:     transaction.CreatedAt,
 	}
 
 	return c.JSON(response)
@@ -290,14 +292,15 @@ func GetTransactionsByDateRange(c *fiber.Ctx) error {
 	var response []models.TransactionResponse
 	for _, t := range transactions {
 		response = append(response, models.TransactionResponse{
-			ID:          t.ID,
-			Amount:      t.Amount,
-			Type:        t.Type,
-			CategoryID:  t.CategoryID,
-			Category:    t.Category.Name,
-			Description: t.Description,
-			Date:        t.Date,
-			CreatedAt:   t.CreatedAt,
+			ID:            t.ID,
+			TransactionID: t.TransactionID,
+			Amount:        t.Amount,
+			Type:          t.Type,
+			CategoryID:    t.CategoryID,
+			Category:      t.Category.Name,
+			Description:   t.Description,
+			Date:          t.Date,
+			CreatedAt:     t.CreatedAt,
 		})
 	}
 
@@ -382,14 +385,15 @@ func CreateBulkTransactions(c *fiber.Ctx) error {
 
 		// Add to success list
 		response.Success = append(response.Success, models.TransactionResponse{
-			ID:          transaction.ID,
-			Amount:      transaction.Amount,
-			Type:        transaction.Type,
-			CategoryID:  transaction.CategoryID,
-			Category:    transaction.Category.Name,
-			Description: transaction.Description,
-			Date:        transaction.Date,
-			CreatedAt:   transaction.CreatedAt,
+			ID:            transaction.ID,
+			TransactionID: transaction.TransactionID,
+			Amount:        transaction.Amount,
+			Type:          transaction.Type,
+			CategoryID:    transaction.CategoryID,
+			Category:      transaction.Category.Name,
+			Description:   transaction.Description,
+			Date:          transaction.Date,
+			CreatedAt:     transaction.CreatedAt,
 		})
 	}
 
@@ -435,14 +439,15 @@ func GetSummary(c *fiber.Ctx) error {
 	var recentResponse []models.TransactionResponse
 	for _, t := range recentTransactions {
 		recentResponse = append(recentResponse, models.TransactionResponse{
-			ID:          t.ID,
-			Amount:      t.Amount,
-			Type:        t.Type,
-			CategoryID:  t.CategoryID,
-			Category:    t.Category.Name,
-			Description: t.Description,
-			Date:        t.Date,
-			CreatedAt:   t.CreatedAt,
+			ID:            t.ID,
+			TransactionID: t.TransactionID,
+			Amount:        t.Amount,
+			Type:          t.Type,
+			CategoryID:    t.CategoryID,
+			Category:      t.Category.Name,
+			Description:   t.Description,
+			Date:          t.Date,
+			CreatedAt:     t.CreatedAt,
 		})
 	}
 
