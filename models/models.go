@@ -163,4 +163,37 @@ type BulkDeleteResponse struct {
 type BulkDeleteError struct {
 	TransactionID uint   `json:"transaction_id"`
 	Error         string `json:"error"`
+}
+
+// CategoryAggregate represents category-wise aggregation data
+type CategoryAggregate struct {
+	CategoryID       uint    `json:"category_id"`
+	CategoryName     string  `json:"category_name"`
+	TotalAmount      float64 `json:"total_amount"`
+	TransactionCount int     `json:"transaction_count"`
+}
+
+// TypeAggregate represents aggregation data for a transaction type (income/expense)
+type TypeAggregate struct {
+	Categories        []CategoryAggregate `json:"categories"`
+	TotalAmount       float64             `json:"total_amount"`
+	TotalTransactions int                 `json:"total_transactions"`
+}
+
+// DateRange represents a date range
+type DateRange struct {
+	StartDate string `json:"start_date"`
+	EndDate   string `json:"end_date"`
+}
+
+// AggregateTableResponse represents the response for aggregate table endpoint
+type AggregateTableResponse struct {
+	DateRange DateRange     `json:"date_range"`
+	Income    TypeAggregate `json:"income"`
+	Expenses  TypeAggregate `json:"expenses"`
+	Summary   struct {
+		NetAmount     float64 `json:"net_amount"`
+		TotalIncome   float64 `json:"total_income"`
+		TotalExpenses float64 `json:"total_expenses"`
+	} `json:"summary"`
 } 
