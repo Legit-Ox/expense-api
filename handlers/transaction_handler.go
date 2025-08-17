@@ -72,7 +72,7 @@ func GetTransactions(c *fiber.Ctx) error {
 		query = query.Where("type = ?", transactionType)
 	}
 
-	if err := query.Find(&transactions).Error; err != nil {
+	if err := query.Order("date DESC").Find(&transactions).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Failed to fetch transactions",
 		})
@@ -101,7 +101,7 @@ func GetTransactions(c *fiber.Ctx) error {
 func GetTransactionsAggregate(c *fiber.Ctx) error {
 	var transactions []models.Transaction
 
-	if err := database.DB.Preload("Category").Find(&transactions).Error; err != nil {
+	if err := database.DB.Preload("Category").Order("date DESC").Find(&transactions).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Failed to fetch transactions",
 		})
@@ -282,7 +282,7 @@ func GetTransactionsByDateRange(c *fiber.Ctx) error {
 		query = query.Where("type = ?", transactionType)
 	}
 
-	if err := query.Find(&transactions).Error; err != nil {
+	if err := query.Order("date DESC").Find(&transactions).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Failed to fetch transactions",
 		})
@@ -532,4 +532,71 @@ func GetSummary(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(summary)
+}
+
+// DeleteBulkTransactions handles DELETE /transactions/bulk
+func DeleteBulkTransactions(c *fiber.Ctx) error {
+	var request models.BulkDeleteRequest
+
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Validate request
+	if len(request.TransactionIDs) == 0 {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "At least one transaction ID is required",
+		})
+	}
+
+	if len(request.TransactionIDs) > 1000 {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Maximum 1000 transaction IDs allowed per bulk delete request",
+		})
+	}
+
+	var response models.BulkDeleteResponse
+	response.TotalCount = len(request.TransactionIDs)
+
+	// Process each transaction ID
+	for _, transactionID := range request.TransactionIDs {
+		// Check if transaction exists
+		var transaction models.Transaction
+		if err := database.DB.First(&transaction, transactionID).Error; err != nil {
+			response.Failed = append(response.Failed, models.BulkDeleteError{
+				TransactionID: transactionID,
+				Error:         "Transaction not found",
+			})
+			continue
+		}
+
+		// Delete the transaction
+		if err := database.DB.Delete(&transaction).Error; err != nil {
+			response.Failed = append(response.Failed, models.BulkDeleteError{
+				TransactionID: transactionID,
+				Error:         "Failed to delete transaction: " + err.Error(),
+			})
+			continue
+		}
+
+		// Add to success list
+		response.Deleted = append(response.Deleted, transactionID)
+	}
+
+	response.DeletedCount = len(response.Deleted)
+	response.FailedCount = len(response.Failed)
+
+	// Return appropriate status code
+	statusCode := 200
+	if response.FailedCount > 0 {
+		if response.DeletedCount == 0 {
+			statusCode = 400 // All failed
+		} else {
+			statusCode = 207 // Partial success (Multi-Status)
+		}
+	}
+
+	return c.Status(statusCode).JSON(response)
 }

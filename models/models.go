@@ -143,4 +143,24 @@ type BulkTransactionError struct {
 	Index       int    `json:"index"`
 	Transaction Transaction `json:"transaction"`
 	Error       string `json:"error"`
+}
+
+// BulkDeleteRequest represents a request to delete multiple transactions
+type BulkDeleteRequest struct {
+	TransactionIDs []uint `json:"transaction_ids" validate:"required,min=1,max=1000"`
+}
+
+// BulkDeleteResponse represents the response for bulk transaction deletion
+type BulkDeleteResponse struct {
+	Deleted      []uint                `json:"deleted"`
+	Failed       []BulkDeleteError     `json:"failed"`
+	TotalCount   int                   `json:"total_count"`
+	DeletedCount int                   `json:"deleted_count"`
+	FailedCount  int                   `json:"failed_count"`
+}
+
+// BulkDeleteError represents an error for a specific transaction ID in bulk delete operation
+type BulkDeleteError struct {
+	TransactionID uint   `json:"transaction_id"`
+	Error         string `json:"error"`
 } 
