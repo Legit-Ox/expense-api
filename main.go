@@ -83,6 +83,7 @@ func main() {
 	transactions.Delete("/bulk", handlers.DeleteBulkTransactions)
 	transactions.Get("/", handlers.GetTransactions)
 	transactions.Get("/aggregate", handlers.GetTransactionsAggregate)
+	transactions.Get("/aggregate-table", handlers.GetTransactionsAggregateTable)
 	transactions.Get("/date-range", handlers.GetTransactionsByDateRange)
 	transactions.Get("/:id", handlers.GetTransaction)
 	transactions.Put("/:id", handlers.UpdateTransaction)

@@ -213,6 +213,77 @@ Get aggregated transaction data by category.
 }
 ```
 
+#### GET /api/transactions/aggregate-table
+Get aggregated transaction data in tabular format within a specific date range, organized by income and expense categories.
+
+**Query Parameters:**
+- `start_date` (required): Start date in YYYY-MM-DD format
+- `end_date` (required): End date in YYYY-MM-DD format
+
+**Examples:**
+- `GET /api/transactions/aggregate-table?start_date=2024-01-01&end_date=2024-01-31`
+
+**Response (200 OK):**
+```json
+{
+  "date_range": {
+    "start_date": "2024-01-01",
+    "end_date": "2024-01-31"
+  },
+  "income": {
+    "categories": [
+      {
+        "category_id": 5,
+        "category_name": "Salary",
+        "total_amount": 5000.0,
+        "transaction_count": 2
+      },
+      {
+        "category_id": 6,
+        "category_name": "Freelance",
+        "total_amount": 1500.0,
+        "transaction_count": 3
+      }
+    ],
+    "total_amount": 6500.0,
+    "total_transactions": 5
+  },
+  "expenses": {
+    "categories": [
+      {
+        "category_id": 1,
+        "category_name": "Food",
+        "total_amount": 450.0,
+        "transaction_count": 12
+      },
+      {
+        "category_id": 2,
+        "category_name": "Transport",
+        "total_amount": 200.0,
+        "transaction_count": 8
+      },
+      {
+        "category_id": 3,
+        "category_name": "Entertainment",
+        "total_amount": 150.0,
+        "transaction_count": 4
+      }
+    ],
+    "total_amount": 800.0,
+    "total_transactions": 24
+  },
+  "summary": {
+    "net_amount": 5700.0,
+    "total_income": 6500.0,
+    "total_expenses": 800.0
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Missing or invalid date parameters
+- `500 Internal Server Error`: Database error
+
 #### GET /api/transactions/:id
 Get a specific transaction by ID.
 
@@ -673,12 +744,17 @@ Currently no pagination is implemented. All endpoints return all results.
     curl "http://localhost:8080/api/transactions/date-range?start_date=2024-01-01&end_date=2024-01-31"
     ```
 
-12. **Get a specific category:**
+12. **Get aggregate table data:**
+    ```bash
+    curl "http://localhost:8080/api/transactions/aggregate-table?start_date=2024-01-01&end_date=2024-01-31"
+    ```
+
+13. **Get a specific category:**
     ```bash
     curl http://localhost:8080/api/categories/1
     ```
 
-13. **Update a category:**
+14. **Update a category:**
     ```bash
     curl -X PUT http://localhost:8080/api/categories/1 \
       -H "Content-Type: application/json" \
@@ -687,7 +763,7 @@ Currently no pagination is implemented. All endpoints return all results.
       }'
     ```
 
-14. **Delete a category (only if no transactions exist):**
+15. **Delete a category (only if no transactions exist):**
     ```bash
     curl -X DELETE http://localhost:8080/api/categories/1
     ```

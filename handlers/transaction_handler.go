@@ -600,3 +600,110 @@ func DeleteBulkTransactions(c *fiber.Ctx) error {
 
 	return c.Status(statusCode).JSON(response)
 }
+// GetTransactionsAggregateTable handles GET /transactions/aggregate-table
+func GetTransactionsAggregateTable(c *fiber.Ctx) error {
+	startDateStr := c.Query("start_date")
+	endDateStr := c.Query("end_date")
+
+	if startDateStr == "" || endDateStr == "" {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Both start_date and end_date query parameters are required",
+		})
+	}
+
+	startDate, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid start_date format. Use YYYY-MM-DD",
+		})
+	}
+
+	endDate, err := time.Parse("2006-01-02", endDateStr)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid end_date format. Use YYYY-MM-DD",
+		})
+	}
+
+	// Set end date to end of day
+	endDate = endDate.Add(24*time.Hour - time.Second)
+
+	// Query transactions within date range
+	var transactions []models.Transaction
+	if err := database.DB.Preload("Category").Where("date BETWEEN ? AND ?", startDate, endDate).Find(&transactions).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to fetch transactions",
+		})
+	}
+
+	// Initialize response
+	response := models.AggregateTableResponse{
+		DateRange: models.DateRange{
+			StartDate: startDateStr,
+			EndDate:   endDateStr,
+		},
+	}
+
+	// Maps to aggregate data by category
+	incomeCategories := make(map[uint]*models.CategoryAggregate)
+	expenseCategories := make(map[uint]*models.CategoryAggregate)
+
+	var totalIncome, totalExpenses float64
+	var incomeTransactionCount, expenseTransactionCount int
+
+	// Process each transaction
+	for _, t := range transactions {
+		if t.Type == "income" {
+			totalIncome += t.Amount
+			incomeTransactionCount++
+
+			if agg, exists := incomeCategories[t.CategoryID]; exists {
+				agg.TotalAmount += t.Amount
+				agg.TransactionCount++
+			} else {
+				incomeCategories[t.CategoryID] = &models.CategoryAggregate{
+					CategoryID:       t.CategoryID,
+					CategoryName:     t.Category.Name,
+					TotalAmount:      t.Amount,
+					TransactionCount: 1,
+				}
+			}
+		} else if t.Type == "expense" {
+			totalExpenses += t.Amount
+			expenseTransactionCount++
+
+			if agg, exists := expenseCategories[t.CategoryID]; exists {
+				agg.TotalAmount += t.Amount
+				agg.TransactionCount++
+			} else {
+				expenseCategories[t.CategoryID] = &models.CategoryAggregate{
+					CategoryID:       t.CategoryID,
+					CategoryName:     t.Category.Name,
+					TotalAmount:      t.Amount,
+					TransactionCount: 1,
+				}
+			}
+		}
+	}
+
+	// Convert maps to slices for JSON response
+	for _, agg := range incomeCategories {
+		response.Income.Categories = append(response.Income.Categories, *agg)
+	}
+	for _, agg := range expenseCategories {
+		response.Expenses.Categories = append(response.Expenses.Categories, *agg)
+	}
+
+	// Set totals
+	response.Income.TotalAmount = totalIncome
+	response.Income.TotalTransactions = incomeTransactionCount
+	response.Expenses.TotalAmount = totalExpenses
+	response.Expenses.TotalTransactions = expenseTransactionCount
+
+	// Set summary
+	response.Summary.TotalIncome = totalIncome
+	response.Summary.TotalExpenses = totalExpenses
+	response.Summary.NetAmount = totalIncome - totalExpenses
+
+	return c.JSON(response)
+}
