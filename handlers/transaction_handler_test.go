@@ -143,14 +143,14 @@ func TestGetTransactions(t *testing.T) {
 			Type:        "expense",
 			CategoryID:  1,
 			Description: "Lunch",
-			Date:        time.Now(),
+			Date:        models.FlexibleDate{Time: time.Now()},
 		},
 		{
 			Amount:      1000.0,
 			Type:        "income",
 			CategoryID:  2,
 			Description: "Salary",
-			Date:        time.Now(),
+			Date:        models.FlexibleDate{Time: time.Now()},
 		},
 	}
 
