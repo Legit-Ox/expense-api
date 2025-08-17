@@ -1,23 +1,89 @@
 package models
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
 )
 
+// FlexibleDate handles multiple date formats
+type FlexibleDate struct {
+	time.Time
+}
+
+// UnmarshalJSON handles multiple date formats
+func (fd *FlexibleDate) UnmarshalJSON(data []byte) error {
+	dateStr := strings.Trim(string(data), `"`)
+	
+	// Try different date formats
+	formats := []string{
+		"02-01-2006", // dd-mm-yyyy
+		"2006-01-02", // yyyy-mm-dd
+		"2006-01-02T15:04:05Z", // ISO format
+		"2006-01-02T15:04:05Z07:00", // ISO with timezone
+		"01/02/2006", // mm/dd/yyyy
+		"02/01/2006", // dd/mm/yyyy
+	}
+	
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateStr); err == nil {
+			fd.Time = t
+			return nil
+		}
+	}
+	
+	return json.Unmarshal(data, &fd.Time)
+}
+
+// MarshalJSON outputs in ISO format
+func (fd FlexibleDate) MarshalJSON() ([]byte, error) {
+	return json.Marshal(fd.Time.Format("2006-01-02T15:04:05Z"))
+}
+
+// Value implements the driver.Valuer interface for database storage
+func (fd FlexibleDate) Value() (driver.Value, error) {
+	return fd.Time, nil
+}
+
+// Scan implements the sql.Scanner interface for database retrieval
+func (fd *FlexibleDate) Scan(value interface{}) error {
+	if value == nil {
+		fd.Time = time.Time{}
+		return nil
+	}
+	
+	switch v := value.(type) {
+	case time.Time:
+		fd.Time = v
+		return nil
+	case string:
+		t, err := time.Parse("2006-01-02 15:04:05", v)
+		if err != nil {
+			return err
+		}
+		fd.Time = t
+		return nil
+	default:
+		return fmt.Errorf("cannot scan %T into FlexibleDate", value)
+	}
+}
+
 // Transaction represents an expense or income transaction
 type Transaction struct {
-	ID            uint      `json:"id" gorm:"primaryKey"`
-	TransactionID string    `json:"transaction_id" gorm:"index"`
-	Amount        float64   `json:"amount" gorm:"not null"`
-	Type          string    `json:"type" gorm:"not null;check:type IN ('expense', 'income')"`
-	CategoryID    uint      `json:"category_id" gorm:"not null"`
-	Category      Category  `json:"category" gorm:"foreignKey:CategoryID"`
-	Description   string    `json:"description" gorm:"not null"`
-	Date          time.Time `json:"date" gorm:"not null"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID            uint         `json:"id" gorm:"primaryKey"`
+	TransactionID string       `json:"transaction_id" gorm:"index"`
+	Amount        float64      `json:"amount" gorm:"not null"`
+	Type          string       `json:"type" gorm:"not null;check:type IN ('expense', 'income')"`
+	CategoryID    uint         `json:"category_id" gorm:"not null"`
+	Category      Category     `json:"category" gorm:"foreignKey:CategoryID"`
+	Description   string       `json:"description" gorm:"not null"`
+	Date          FlexibleDate `json:"date" gorm:"not null"`
+	CreatedAt     time.Time    `json:"created_at"`
+	UpdatedAt     time.Time    `json:"updated_at"`
 }
 
 // Category represents a transaction category
@@ -60,7 +126,7 @@ type AggregateResponse struct {
 
 // BulkTransactionRequest represents a request to create multiple transactions
 type BulkTransactionRequest struct {
-	Transactions []Transaction `json:"transactions" validate:"required,min=1,max=100"`
+	Transactions []Transaction `json:"transactions" validate:"required,min=1,max=5000"`
 }
 
 // BulkTransactionResponse represents the response for bulk transaction creation

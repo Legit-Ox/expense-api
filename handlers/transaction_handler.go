@@ -28,7 +28,7 @@ func CreateTransaction(c *fiber.Ctx) error {
 
 	// Set default date if not provided
 	if transaction.Date.IsZero() {
-		transaction.Date = time.Now()
+		transaction.Date = models.FlexibleDate{Time: time.Now()}
 	}
 
 	// Verify category exists and matches type
@@ -89,7 +89,7 @@ func GetTransactions(c *fiber.Ctx) error {
 			CategoryID:    t.CategoryID,
 			Category:      t.Category.Name,
 			Description:   t.Description,
-			Date:          t.Date,
+			Date:          t.Date.Time,
 			CreatedAt:     t.CreatedAt,
 		})
 	}
@@ -151,7 +151,7 @@ func GetTransaction(c *fiber.Ctx) error {
 		CategoryID:    transaction.CategoryID,
 		Category:      transaction.Category.Name,
 		Description:   transaction.Description,
-		Date:          transaction.Date,
+		Date:          transaction.Date.Time,
 		CreatedAt:     transaction.CreatedAt,
 	}
 
@@ -299,7 +299,7 @@ func GetTransactionsByDateRange(c *fiber.Ctx) error {
 			CategoryID:    t.CategoryID,
 			Category:      t.Category.Name,
 			Description:   t.Description,
-			Date:          t.Date,
+			Date:          t.Date.Time,
 			CreatedAt:     t.CreatedAt,
 		})
 	}
@@ -324,9 +324,9 @@ func CreateBulkTransactions(c *fiber.Ctx) error {
 		})
 	}
 
-	if len(request.Transactions) > 100 {
+	if len(request.Transactions) > 5000 {
 		return c.Status(400).JSON(fiber.Map{
-			"error": "Maximum 100 transactions allowed per bulk request",
+			"error": "Maximum 5000 transactions allowed per bulk request",
 		})
 	}
 
@@ -337,7 +337,7 @@ func CreateBulkTransactions(c *fiber.Ctx) error {
 	for i, transaction := range request.Transactions {
 		// Set default date if not provided
 		if transaction.Date.IsZero() {
-			transaction.Date = time.Now()
+			transaction.Date = models.FlexibleDate{Time: time.Now()}
 		}
 
 		// Validate transaction type
@@ -392,7 +392,7 @@ func CreateBulkTransactions(c *fiber.Ctx) error {
 			CategoryID:    transaction.CategoryID,
 			Category:      transaction.Category.Name,
 			Description:   transaction.Description,
-			Date:          transaction.Date,
+			Date:          transaction.Date.Time,
 			CreatedAt:     transaction.CreatedAt,
 		})
 	}
@@ -472,7 +472,7 @@ func UpdateTransactionCategory(c *fiber.Ctx) error {
 		CategoryID:    transaction.CategoryID,
 		Category:      transaction.Category.Name,
 		Description:   transaction.Description,
-		Date:          transaction.Date,
+		Date:          transaction.Date.Time,
 		CreatedAt:     transaction.CreatedAt,
 	}
 
@@ -512,7 +512,7 @@ func GetSummary(c *fiber.Ctx) error {
 			CategoryID:    t.CategoryID,
 			Category:      t.Category.Name,
 			Description:   t.Description,
-			Date:          t.Date,
+			Date:          t.Date.Time,
 			CreatedAt:     t.CreatedAt,
 		})
 	}
