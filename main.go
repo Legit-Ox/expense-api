@@ -80,6 +80,7 @@ func main() {
 	transactions := api.Group("/transactions")
 	transactions.Post("/", handlers.CreateTransaction)
 	transactions.Post("/bulk", handlers.CreateBulkTransactions)
+	transactions.Delete("/bulk", handlers.DeleteBulkTransactions)
 	transactions.Get("/", handlers.GetTransactions)
 	transactions.Get("/aggregate", handlers.GetTransactionsAggregate)
 	transactions.Get("/date-range", handlers.GetTransactionsByDateRange)

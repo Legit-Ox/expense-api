@@ -324,6 +324,75 @@ Delete a transaction.
 - `404 Not Found`: Transaction not found
 - `500 Internal Server Error`: Database error
 
+#### DELETE /api/transactions/bulk
+Delete multiple transactions in a single request.
+
+**Request Body:**
+```json
+{
+  "transaction_ids": [1, 2, 3, 4, 5]
+}
+```
+
+**Fields:**
+- `transaction_ids` (array, required): Array of transaction IDs to delete (max 1000)
+
+**Response (200 OK - All Success):**
+```json
+{
+  "deleted": [1, 2, 3, 4, 5],
+  "failed": [],
+  "total_count": 5,
+  "deleted_count": 5,
+  "failed_count": 0
+}
+```
+
+**Response (207 Multi-Status - Partial Success):**
+```json
+{
+  "deleted": [1, 2, 4],
+  "failed": [
+    {
+      "transaction_id": 3,
+      "error": "Transaction not found"
+    },
+    {
+      "transaction_id": 5,
+      "error": "Transaction not found"
+    }
+  ],
+  "total_count": 5,
+  "deleted_count": 3,
+  "failed_count": 2
+}
+```
+
+**Response (400 Bad Request - All Failed):**
+```json
+{
+  "deleted": [],
+  "failed": [
+    {
+      "transaction_id": 1,
+      "error": "Transaction not found"
+    },
+    {
+      "transaction_id": 2,
+      "error": "Transaction not found"
+    }
+  ],
+  "total_count": 2,
+  "deleted_count": 0,
+  "failed_count": 2
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid request body, no transaction IDs provided, too many IDs (>1000), or all deletions failed
+- `207 Multi-Status`: Some deletions succeeded, some failed
+- `500 Internal Server Error`: Database error
+
 #### GET /api/transactions/date-range
 Get transactions within a specific date range.
 
@@ -590,17 +659,26 @@ Currently no pagination is implemented. All endpoints return all results.
    curl -X DELETE http://localhost:8080/api/transactions/1
    ```
 
-10. **Get transactions by date range:**
+10. **Delete multiple transactions (bulk delete):**
+    ```bash
+    curl -X DELETE http://localhost:8080/api/transactions/bulk \
+      -H "Content-Type: application/json" \
+      -d '{
+        "transaction_ids": [1, 2, 3, 4, 5]
+      }'
+    ```
+
+11. **Get transactions by date range:**
     ```bash
     curl "http://localhost:8080/api/transactions/date-range?start_date=2024-01-01&end_date=2024-01-31"
     ```
 
-11. **Get a specific category:**
+12. **Get a specific category:**
     ```bash
     curl http://localhost:8080/api/categories/1
     ```
 
-12. **Update a category:**
+13. **Update a category:**
     ```bash
     curl -X PUT http://localhost:8080/api/categories/1 \
       -H "Content-Type: application/json" \
@@ -609,7 +687,7 @@ Currently no pagination is implemented. All endpoints return all results.
       }'
     ```
 
-13. **Delete a category (only if no transactions exist):**
+14. **Delete a category (only if no transactions exist):**
     ```bash
     curl -X DELETE http://localhost:8080/api/categories/1
     ```
