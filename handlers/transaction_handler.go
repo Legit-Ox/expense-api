@@ -9,6 +9,51 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// convertToTransactionResponse converts a Transaction model to TransactionResponse
+func convertToTransactionResponse(t models.Transaction) models.TransactionResponse {
+	response := models.TransactionResponse{
+		ID:            t.ID,
+		TransactionID: t.TransactionID,
+		Amount:        t.Amount,
+		Type:          t.Type,
+		CategoryID:    t.CategoryID,
+		BankAccountID: t.BankAccountID,
+		BankAccount: models.BankAccountResponse{
+			ID:            t.BankAccount.ID,
+			Name:          t.BankAccount.Name,
+			AccountNumber: t.BankAccount.AccountNumber,
+			BankName:      t.BankAccount.BankName,
+			AccountType:   t.BankAccount.AccountType,
+			Balance:       t.BankAccount.Balance,
+			IsActive:      t.BankAccount.IsActive,
+		},
+		DestinationBankAccountID: t.DestinationBankAccountID,
+		Description:              t.Description,
+		Date:                     t.Date.Time,
+		CreatedAt:                t.CreatedAt,
+	}
+
+	// Set category name if category exists
+	if t.CategoryID != nil {
+		response.Category = t.Category.Name
+	}
+
+	// Set destination bank account if it exists
+	if t.DestinationBankAccountID != nil {
+		response.DestinationBankAccount = &models.BankAccountResponse{
+			ID:            t.DestinationBankAccount.ID,
+			Name:          t.DestinationBankAccount.Name,
+			AccountNumber: t.DestinationBankAccount.AccountNumber,
+			BankName:      t.DestinationBankAccount.BankName,
+			AccountType:   t.DestinationBankAccount.AccountType,
+			Balance:       t.DestinationBankAccount.Balance,
+			IsActive:      t.DestinationBankAccount.IsActive,
+		}
+	}
+
+	return response
+}
+
 // CreateTransaction handles POST /transactions
 func CreateTransaction(c *fiber.Ctx) error {
 	var transaction models.Transaction
@@ -20,9 +65,9 @@ func CreateTransaction(c *fiber.Ctx) error {
 	}
 
 	// Validate transaction type
-	if transaction.Type != "expense" && transaction.Type != "income" {
+	if transaction.Type != "expense" && transaction.Type != "income" && transaction.Type != "transfer" {
 		return c.Status(400).JSON(fiber.Map{
-			"error": "Type must be either 'expense' or 'income'",
+			"error": "Type must be either 'expense', 'income', or 'transfer'",
 		})
 	}
 
@@ -31,18 +76,64 @@ func CreateTransaction(c *fiber.Ctx) error {
 		transaction.Date = models.FlexibleDate{Time: time.Now()}
 	}
 
-	// Verify category exists and matches type
-	var category models.Category
-	if err := database.DB.First(&category, transaction.CategoryID).Error; err != nil {
+	// Validate bank account exists
+	var bankAccount models.BankAccount
+	if err := database.DB.First(&bankAccount, transaction.BankAccountID).Error; err != nil {
 		return c.Status(400).JSON(fiber.Map{
-			"error": "Category not found",
+			"error": "Bank account not found",
 		})
 	}
 
-	if category.Type != transaction.Type {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Category type does not match transaction type",
-		})
+	// Validate based on transaction type
+	if transaction.Type == "transfer" {
+		// For transfers, category is not required but destination account is
+		if transaction.DestinationBankAccountID == nil {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "Destination bank account is required for transfers",
+			})
+		}
+
+		// Validate destination bank account exists
+		var destBankAccount models.BankAccount
+		if err := database.DB.First(&destBankAccount, *transaction.DestinationBankAccountID).Error; err != nil {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "Destination bank account not found",
+			})
+		}
+
+		// Cannot transfer to the same account
+		if transaction.BankAccountID == *transaction.DestinationBankAccountID {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "Cannot transfer to the same bank account",
+			})
+		}
+
+		// Set category to nil for transfers
+		transaction.CategoryID = nil
+	} else {
+		// For expense/income, category is required
+		if transaction.CategoryID == nil {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "Category is required for expense and income transactions",
+			})
+		}
+
+		// Verify category exists and matches type
+		var category models.Category
+		if err := database.DB.First(&category, *transaction.CategoryID).Error; err != nil {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "Category not found",
+			})
+		}
+
+		if category.Type != transaction.Type {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "Category type does not match transaction type",
+			})
+		}
+
+		// Destination account should not be set for expense/income
+		transaction.DestinationBankAccountID = nil
 	}
 
 	if err := database.DB.Create(&transaction).Error; err != nil {
@@ -51,25 +142,33 @@ func CreateTransaction(c *fiber.Ctx) error {
 		})
 	}
 
-	// Load category for response
-	database.DB.Preload("Category").First(&transaction, transaction.ID)
+	// Load related data for response
+	database.DB.Preload("Category").Preload("BankAccount").Preload("DestinationBankAccount").First(&transaction, transaction.ID)
 
-	return c.Status(201).JSON(transaction)
+	// Convert to response format
+	response := convertToTransactionResponse(transaction)
+
+	return c.Status(201).JSON(response)
 }
 
 // GetTransactions handles GET /transactions
 func GetTransactions(c *fiber.Ctx) error {
 	var transactions []models.Transaction
-	query := database.DB.Preload("Category")
+	query := database.DB.Preload("Category").Preload("BankAccount").Preload("DestinationBankAccount")
 
 	// Apply type filter if provided
 	if transactionType := c.Query("type"); transactionType != "" {
-		if transactionType != "expense" && transactionType != "income" {
+		if transactionType != "expense" && transactionType != "income" && transactionType != "transfer" {
 			return c.Status(400).JSON(fiber.Map{
-				"error": "Type must be either 'expense' or 'income'",
+				"error": "Type must be either 'expense', 'income', or 'transfer'",
 			})
 		}
 		query = query.Where("type = ?", transactionType)
+	}
+
+	// Apply bank account filter if provided
+	if bankAccountID := c.Query("bank_account_id"); bankAccountID != "" {
+		query = query.Where("bank_account_id = ? OR destination_bank_account_id = ?", bankAccountID, bankAccountID)
 	}
 
 	if err := query.Order("date DESC").Find(&transactions).Error; err != nil {
@@ -81,17 +180,7 @@ func GetTransactions(c *fiber.Ctx) error {
 	// Convert to response format
 	var response []models.TransactionResponse
 	for _, t := range transactions {
-		response = append(response, models.TransactionResponse{
-			ID:            t.ID,
-			TransactionID: t.TransactionID,
-			Amount:        t.Amount,
-			Type:          t.Type,
-			CategoryID:    t.CategoryID,
-			Category:      t.Category.Name,
-			Description:   t.Description,
-			Date:          t.Date.Time,
-			CreatedAt:     t.CreatedAt,
-		})
+		response = append(response, convertToTransactionResponse(t))
 	}
 
 	return c.JSON(response)
@@ -101,7 +190,8 @@ func GetTransactions(c *fiber.Ctx) error {
 func GetTransactionsAggregate(c *fiber.Ctx) error {
 	var transactions []models.Transaction
 
-	if err := database.DB.Preload("Category").Order("date DESC").Find(&transactions).Error; err != nil {
+	// Exclude transfers from aggregation
+	if err := database.DB.Preload("Category").Where("type != ?", "transfer").Order("date DESC").Find(&transactions).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Failed to fetch transactions",
 		})
@@ -117,7 +207,7 @@ func GetTransactionsAggregate(c *fiber.Ctx) error {
 
 		if t.Type == "income" {
 			totalIncome += t.Amount
-		} else {
+		} else if t.Type == "expense" {
 			totalExpenses += t.Amount
 		}
 	}
@@ -137,24 +227,13 @@ func GetTransaction(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	var transaction models.Transaction
-	if err := database.DB.Preload("Category").First(&transaction, id).Error; err != nil {
+	if err := database.DB.Preload("Category").Preload("BankAccount").Preload("DestinationBankAccount").First(&transaction, id).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{
 			"error": "Transaction not found",
 		})
 	}
 
-	response := models.TransactionResponse{
-		ID:            transaction.ID,
-		TransactionID: transaction.TransactionID,
-		Amount:        transaction.Amount,
-		Type:          transaction.Type,
-		CategoryID:    transaction.CategoryID,
-		Category:      transaction.Category.Name,
-		Description:   transaction.Description,
-		Date:          transaction.Date.Time,
-		CreatedAt:     transaction.CreatedAt,
-	}
-
+	response := convertToTransactionResponse(transaction)
 	return c.JSON(response)
 }
 
@@ -653,16 +732,23 @@ func GetTransactionsAggregateTable(c *fiber.Ctx) error {
 
 	// Process each transaction
 	for _, t := range transactions {
+		// Skip transfers as they don't have categories
+		if t.Type == "transfer" || t.CategoryID == nil {
+			continue
+		}
+
+		categoryID := *t.CategoryID
+		
 		if t.Type == "income" {
 			totalIncome += t.Amount
 			incomeTransactionCount++
 
-			if agg, exists := incomeCategories[t.CategoryID]; exists {
+			if agg, exists := incomeCategories[categoryID]; exists {
 				agg.TotalAmount += t.Amount
 				agg.TransactionCount++
 			} else {
-				incomeCategories[t.CategoryID] = &models.CategoryAggregate{
-					CategoryID:       t.CategoryID,
+				incomeCategories[categoryID] = &models.CategoryAggregate{
+					CategoryID:       categoryID,
 					CategoryName:     t.Category.Name,
 					TotalAmount:      t.Amount,
 					TransactionCount: 1,
@@ -672,12 +758,12 @@ func GetTransactionsAggregateTable(c *fiber.Ctx) error {
 			totalExpenses += t.Amount
 			expenseTransactionCount++
 
-			if agg, exists := expenseCategories[t.CategoryID]; exists {
+			if agg, exists := expenseCategories[categoryID]; exists {
 				agg.TotalAmount += t.Amount
 				agg.TransactionCount++
 			} else {
-				expenseCategories[t.CategoryID] = &models.CategoryAggregate{
-					CategoryID:       t.CategoryID,
+				expenseCategories[categoryID] = &models.CategoryAggregate{
+					CategoryID:       categoryID,
 					CategoryName:     t.Category.Name,
 					TotalAmount:      t.Amount,
 					TransactionCount: 1,
@@ -704,6 +790,153 @@ func GetTransactionsAggregateTable(c *fiber.Ctx) error {
 	response.Summary.TotalIncome = totalIncome
 	response.Summary.TotalExpenses = totalExpenses
 	response.Summary.NetAmount = totalIncome - totalExpenses
+
+	return c.JSON(response)
+}
+
+// CreateTransfer handles POST /transactions/transfer
+func CreateTransfer(c *fiber.Ctx) error {
+	var transferRequest models.TransferRequest
+
+	if err := c.BodyParser(&transferRequest); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Validate amount
+	if transferRequest.Amount <= 0 {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Amount must be greater than 0",
+		})
+	}
+
+	// Validate source and destination accounts are different
+	if transferRequest.BankAccountID == transferRequest.DestinationBankAccountID {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Cannot transfer to the same bank account",
+		})
+	}
+
+	// Validate source bank account exists
+	var sourceBankAccount models.BankAccount
+	if err := database.DB.First(&sourceBankAccount, transferRequest.BankAccountID).Error; err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Source bank account not found",
+		})
+	}
+
+	// Validate destination bank account exists
+	var destBankAccount models.BankAccount
+	if err := database.DB.First(&destBankAccount, transferRequest.DestinationBankAccountID).Error; err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Destination bank account not found",
+		})
+	}
+
+	// Set default date if not provided
+	if transferRequest.Date.IsZero() {
+		transferRequest.Date = models.FlexibleDate{Time: time.Now()}
+	}
+
+	// Create transfer transaction
+	transaction := models.Transaction{
+		TransactionID:           transferRequest.TransactionID,
+		Amount:                  transferRequest.Amount,
+		Type:                    "transfer",
+		CategoryID:              nil, // Transfers don't have categories
+		BankAccountID:           transferRequest.BankAccountID,
+		DestinationBankAccountID: &transferRequest.DestinationBankAccountID,
+		Description:             transferRequest.Description,
+		Date:                    transferRequest.Date,
+	}
+
+	if err := database.DB.Create(&transaction).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to create transfer",
+		})
+	}
+
+	// Load related data for response
+	database.DB.Preload("BankAccount").Preload("DestinationBankAccount").First(&transaction, transaction.ID)
+
+	// Convert to transfer response format
+	response := models.TransferResponse{
+		ID:            transaction.ID,
+		TransactionID: transaction.TransactionID,
+		Amount:        transaction.Amount,
+		BankAccount: models.BankAccountResponse{
+			ID:            transaction.BankAccount.ID,
+			Name:          transaction.BankAccount.Name,
+			AccountNumber: transaction.BankAccount.AccountNumber,
+			BankName:      transaction.BankAccount.BankName,
+			AccountType:   transaction.BankAccount.AccountType,
+			Balance:       transaction.BankAccount.Balance,
+			IsActive:      transaction.BankAccount.IsActive,
+		},
+		DestinationBankAccount: models.BankAccountResponse{
+			ID:            transaction.DestinationBankAccount.ID,
+			Name:          transaction.DestinationBankAccount.Name,
+			AccountNumber: transaction.DestinationBankAccount.AccountNumber,
+			BankName:      transaction.DestinationBankAccount.BankName,
+			AccountType:   transaction.DestinationBankAccount.AccountType,
+			Balance:       transaction.DestinationBankAccount.Balance,
+			IsActive:      transaction.DestinationBankAccount.IsActive,
+		},
+		Description: transaction.Description,
+		Date:        transaction.Date.Time,
+		CreatedAt:   transaction.CreatedAt,
+	}
+
+	return c.Status(201).JSON(response)
+}
+
+// GetTransfers handles GET /transactions/transfers
+func GetTransfers(c *fiber.Ctx) error {
+	var transactions []models.Transaction
+	query := database.DB.Preload("BankAccount").Preload("DestinationBankAccount").Where("type = ?", "transfer")
+
+	// Apply bank account filter if provided
+	if bankAccountID := c.Query("bank_account_id"); bankAccountID != "" {
+		query = query.Where("bank_account_id = ? OR destination_bank_account_id = ?", bankAccountID, bankAccountID)
+	}
+
+	if err := query.Order("date DESC").Find(&transactions).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to fetch transfers",
+		})
+	}
+
+	// Convert to transfer response format
+	var response []models.TransferResponse
+	for _, t := range transactions {
+		response = append(response, models.TransferResponse{
+			ID:            t.ID,
+			TransactionID: t.TransactionID,
+			Amount:        t.Amount,
+			BankAccount: models.BankAccountResponse{
+				ID:            t.BankAccount.ID,
+				Name:          t.BankAccount.Name,
+				AccountNumber: t.BankAccount.AccountNumber,
+				BankName:      t.BankAccount.BankName,
+				AccountType:   t.BankAccount.AccountType,
+				Balance:       t.BankAccount.Balance,
+				IsActive:      t.BankAccount.IsActive,
+			},
+			DestinationBankAccount: models.BankAccountResponse{
+				ID:            t.DestinationBankAccount.ID,
+				Name:          t.DestinationBankAccount.Name,
+				AccountNumber: t.DestinationBankAccount.AccountNumber,
+				BankName:      t.DestinationBankAccount.BankName,
+				AccountType:   t.DestinationBankAccount.AccountType,
+				Balance:       t.DestinationBankAccount.Balance,
+				IsActive:      t.DestinationBankAccount.IsActive,
+			},
+			Description: t.Description,
+			Date:        t.Date.Time,
+			CreatedAt:   t.CreatedAt,
+		})
+	}
 
 	return c.JSON(response)
 }

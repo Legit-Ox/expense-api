@@ -22,6 +22,61 @@ Check if the API is running.
 }
 ```
 
+### Bank Accounts
+
+#### POST /api/bank-accounts
+Create a new bank account.
+
+**Request Body:**
+```json
+{
+  "name": "Primary Checking",
+  "account_number": "****1234",
+  "bank_name": "Chase Bank",
+  "account_type": "checking",
+  "balance": 1000.00,
+  "is_active": true
+}
+```
+
+**Fields:**
+- `name` (string, required): Account name
+- `account_number` (string, optional): Masked account number
+- `bank_name` (string, required): Bank institution name
+- `account_type` (string, required): One of "checking", "savings", "credit", "investment", "other"
+- `balance` (float, optional): Current balance (defaults to 0)
+- `is_active` (boolean, optional): Whether account is active (defaults to true)
+
+#### GET /api/bank-accounts
+Get all bank accounts.
+
+**Query Parameters:**
+- `include_inactive` (boolean, optional): Include inactive accounts (defaults to false)
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "name": "Primary Checking",
+    "account_number": "****1234",
+    "bank_name": "Chase Bank",
+    "account_type": "checking",
+    "balance": 1000.00,
+    "is_active": true
+  }
+]
+```
+
+#### GET /api/bank-accounts/:id
+Get a specific bank account.
+
+#### PUT /api/bank-accounts/:id
+Update a bank account.
+
+#### DELETE /api/bank-accounts/:id
+Delete a bank account (soft delete).
+
 ### Transactions
 
 #### POST /api/transactions
@@ -34,6 +89,7 @@ Create a new transaction.
   "amount": 50.0,
   "type": "expense",
   "category_id": 1,
+  "bank_account_id": 1,
   "description": "Lunch",
   "date": "2024-01-15T12:00:00Z"
 }
@@ -42,8 +98,10 @@ Create a new transaction.
 **Fields:**
 - `transaction_id` (string, optional): Bank transaction reference number
 - `amount` (float, required): Transaction amount
-- `type` (string, required): Either "expense" or "income"
-- `category_id` (integer, required): ID of the category
+- `type` (string, required): Either "expense", "income", or "transfer"
+- `category_id` (integer, required for expense/income): ID of the category (not required for transfers)
+- `bank_account_id` (integer, required): ID of the source bank account
+- `destination_bank_account_id` (integer, required for transfers): ID of destination bank account for transfers
 - `description` (string, required): Transaction description
 - `date` (string, optional): ISO 8601 date string (defaults to current time)
 
@@ -168,18 +226,109 @@ Create multiple transactions in a single request.
 - `207 Multi-Status`: Some transactions succeeded, some failed
 - `500 Internal Server Error`: Database error
 
+#### POST /api/transactions/transfer
+Create a transfer between bank accounts.
+
+**Request Body:**
+```json
+{
+  "amount": 500.0,
+  "bank_account_id": 1,
+  "destination_bank_account_id": 2,
+  "description": "Transfer to savings",
+  "date": "2024-01-15T12:00:00Z",
+  "transaction_id": "TXN123456789"
+}
+```
+
+**Fields:**
+- `amount` (float, required): Transfer amount (must be greater than 0)
+- `bank_account_id` (integer, required): ID of the source bank account
+- `destination_bank_account_id` (integer, required): ID of the destination bank account
+- `description` (string, required): Transfer description
+- `date` (string, optional): ISO 8601 date string (defaults to current time)
+- `transaction_id` (string, optional): Bank transaction reference number
+
+**Response (201 Created):**
+```json
+{
+  "id": 1,
+  "transaction_id": "TXN123456789",
+  "amount": 500.0,
+  "bank_account": {
+    "id": 1,
+    "name": "Primary Checking",
+    "account_number": "",
+    "bank_name": "Chase Bank",
+    "account_type": "checking",
+    "balance": 1000.0,
+    "is_active": true
+  },
+  "destination_bank_account": {
+    "id": 2,
+    "name": "Savings Account",
+    "account_number": "",
+    "bank_name": "Chase Bank",
+    "account_type": "savings",
+    "balance": 5000.0,
+    "is_active": true
+  },
+  "description": "Transfer to savings",
+  "date": "2024-01-15T12:00:00Z",
+  "created_at": "2024-01-15T12:00:00Z"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid data, bank accounts not found, or cannot transfer to same account
+- `500 Internal Server Error`: Database error
+
+#### GET /api/transactions/transfers
+Get all transfer transactions.
+
+**Query Parameters:**
+- `bank_account_id` (integer, optional): Filter by bank account (source or destination)
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "transaction_id": "TXN123456789",
+    "amount": 500.0,
+    "bank_account": {
+      "id": 1,
+      "name": "Primary Checking",
+      "account_number": "",
+      "bank_name": "Chase Bank",
+      "account_type": "checking",
+      "balance": 1000.0,
+      "is_active": true
+    },
+    "destination_bank_account": {
+      "id": 2,
+      "name": "Savings Account",
+      "account_number": "",
+      "bank_name": "Chase Bank",
+      "account_type": "savings",
+      "balance": 5000.0,
+      "is_active": true
+    },
+    "description": "Transfer to savings",
+    "date": "2024-01-15T12:00:00Z",
+    "created_at": "2024-01-15T12:00:00Z"
+  }
+]
+```
+
 #### GET /api/transactions
 Get all transactions with optional filtering.
 
 **Query Parameters:**
-- `type` (optional): Filter by "expense" or "income"
+- `type` (string, optional): Filter by transaction type ("expense", "income", or "transfer")
+- `bank_account_id` (integer, optional): Filter by bank account (source or destination for transfers)
 
-**Examples:**
-- `GET /api/transactions` - Get all transactions
-- `GET /api/transactions?type=expense` - Get only expenses
-- `GET /api/transactions?type=income` - Get only income
-
-**Response (200 OK):**
+**Response:**
 ```json
 [
   {
@@ -189,6 +338,15 @@ Get all transactions with optional filtering.
     "type": "expense",
     "category_id": 1,
     "category": "Food",
+    "bank_account_id": 1,
+    "bank_account": {
+      "id": 1,
+      "name": "Primary Checking",
+      "bank_name": "Chase Bank",
+      "account_type": "checking"
+    },
+    "destination_bank_account_id": null,
+    "destination_bank_account": null,
     "description": "Lunch",
     "date": "2024-01-15T12:00:00Z",
     "created_at": "2024-01-15T12:00:00Z"
@@ -635,7 +793,7 @@ All error responses follow this format:
 ## Data Validation
 
 ### Transaction Type
-Must be exactly "expense" or "income" (case-sensitive).
+Must be exactly "expense", "income", or "transfer" (case-sensitive).
 
 ### Category Type
 Must be exactly "expense" or "income" (case-sensitive).
@@ -644,17 +802,25 @@ Must be exactly "expense" or "income" (case-sensitive).
 Must be a positive number.
 
 ### Category ID
-Must reference an existing category, and the category type must match the transaction type.
+Must reference an existing category, and the category type must match the transaction type. Not required for transfers.
+
+### Bank Account ID
+Must reference an existing active bank account.
 
 ### Category Name
 Must be unique across all categories.
+
+### Bank Account Name
+Must be provided when creating bank accounts.
+
+### Account Type
+Must be one of: "checking", "savings", "credit", "investment", "other".
 
 ## CORS
 
 The API supports CORS for cross-origin requests:
 - All origins allowed (`*`)
 - Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
-- Headers: Origin, Content-Type, Accept, Authorization
 
 ## Rate Limiting
 
