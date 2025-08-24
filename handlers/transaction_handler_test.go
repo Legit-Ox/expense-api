@@ -21,7 +21,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	assert.NoError(t, err)
 
 	// Migrate tables
-	err = db.AutoMigrate(&models.Category{}, &models.Transaction{})
+	err = db.AutoMigrate(&models.Category{}, &models.BankAccount{}, &models.Transaction{})
 	assert.NoError(t, err)
 
 	// Seed test categories
@@ -32,6 +32,17 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 	for _, category := range testCategories {
 		err = db.Create(&category).Error
+		assert.NoError(t, err)
+	}
+
+	// Seed test bank accounts
+	testBankAccounts := []models.BankAccount{
+		{Name: "Test Checking", BankName: "Test Bank", AccountType: "checking", Balance: 1000.0, IsActive: true},
+		{Name: "Test Savings", BankName: "Test Bank", AccountType: "savings", Balance: 5000.0, IsActive: true},
+	}
+
+	for _, account := range testBankAccounts {
+		err = db.Create(&account).Error
 		assert.NoError(t, err)
 	}
 
@@ -59,11 +70,12 @@ func TestCreateTransaction(t *testing.T) {
 		{
 			name: "Valid expense transaction",
 			payload: map[string]interface{}{
-				"amount":       50.0,
-				"type":         "expense",
-				"category_id":  1,
-				"description":  "Lunch",
-				"date":         time.Now().Format(time.RFC3339),
+				"amount":          50.0,
+				"type":            "expense",
+				"category_id":     1,
+				"bank_account_id": 1,
+				"description":     "Lunch",
+				"date":            time.Now().Format(time.RFC3339),
 			},
 			expectedStatus: 201,
 			checkResponse:  true,
@@ -71,11 +83,12 @@ func TestCreateTransaction(t *testing.T) {
 		{
 			name: "Valid income transaction",
 			payload: map[string]interface{}{
-				"amount":       1000.0,
-				"type":         "income",
-				"category_id":  2,
-				"description":  "Monthly salary",
-				"date":         time.Now().Format(time.RFC3339),
+				"amount":          1000.0,
+				"type":            "income",
+				"category_id":     2,
+				"bank_account_id": 1,
+				"description":     "Monthly salary",
+				"date":            time.Now().Format(time.RFC3339),
 			},
 			expectedStatus: 201,
 			checkResponse:  true,
@@ -83,11 +96,12 @@ func TestCreateTransaction(t *testing.T) {
 		{
 			name: "Invalid transaction type",
 			payload: map[string]interface{}{
-				"amount":       50.0,
-				"type":         "invalid",
-				"category_id":  1,
-				"description":  "Test",
-				"date":         time.Now().Format(time.RFC3339),
+				"amount":          50.0,
+				"type":            "invalid",
+				"category_id":     1,
+				"bank_account_id": 1,
+				"description":     "Test",
+				"date":            time.Now().Format(time.RFC3339),
 			},
 			expectedStatus: 400,
 			checkResponse:  false,
@@ -95,11 +109,12 @@ func TestCreateTransaction(t *testing.T) {
 		{
 			name: "Invalid category ID",
 			payload: map[string]interface{}{
-				"amount":       50.0,
-				"type":         "expense",
-				"category_id":  999,
-				"description":  "Test",
-				"date":         time.Now().Format(time.RFC3339),
+				"amount":          50.0,
+				"type":            "expense",
+				"category_id":     999,
+				"bank_account_id": 1,
+				"description":     "Test",
+				"date":            time.Now().Format(time.RFC3339),
 			},
 			expectedStatus: 400,
 			checkResponse:  false,
@@ -117,13 +132,13 @@ func TestCreateTransaction(t *testing.T) {
 			assert.Equal(t, tt.expectedStatus, resp.StatusCode)
 
 			if tt.checkResponse {
-				var response models.Transaction
+				var response map[string]interface{}
 				err = json.NewDecoder(resp.Body).Decode(&response)
 				assert.NoError(t, err)
-				assert.NotZero(t, response.ID)
-				assert.Equal(t, tt.payload["amount"], response.Amount)
-				assert.Equal(t, tt.payload["type"], response.Type)
-				assert.Equal(t, tt.payload["description"], response.Description)
+				assert.NotZero(t, response["id"])
+				assert.Equal(t, tt.payload["amount"], response["amount"])
+				assert.Equal(t, tt.payload["type"], response["type"])
+				assert.Equal(t, tt.payload["description"], response["description"])
 			}
 		})
 	}
@@ -137,20 +152,25 @@ func TestGetTransactions(t *testing.T) {
 	}()
 
 	// Create test transactions
+	// Helper function to create uint pointers
+	uintPtr := func(u uint) *uint { return &u }
+
 	testTransactions := []models.Transaction{
 		{
-			Amount:      50.0,
-			Type:        "expense",
-			CategoryID:  1,
-			Description: "Lunch",
-			Date:        models.FlexibleDate{Time: time.Now()},
+			Amount:        50.0,
+			Type:          "expense",
+			CategoryID:    uintPtr(1),
+			BankAccountID: 1,
+			Description:   "Lunch",
+			Date:          models.FlexibleDate{Time: time.Now()},
 		},
 		{
-			Amount:      1000.0,
-			Type:        "income",
-			CategoryID:  2,
-			Description: "Salary",
-			Date:        models.FlexibleDate{Time: time.Now()},
+			Amount:        1000.0,
+			Type:          "income",
+			CategoryID:    uintPtr(2),
+			BankAccountID: 1,
+			Description:   "Salary",
+			Date:          models.FlexibleDate{Time: time.Now()},
 		},
 	}
 
