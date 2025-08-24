@@ -88,7 +88,7 @@ func maskPassword(dbURL string) string {
 
 // Migrate runs database migrations
 func Migrate() {
-	err := DB.AutoMigrate(&models.Category{}, &models.Transaction{})
+	err := DB.AutoMigrate(&models.BankAccount{}, &models.Category{}, &models.Transaction{})
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}
@@ -122,6 +122,42 @@ func SeedDefaultCategories() {
 	}
 
 	log.Printf("Seeded %d default categories", len(defaultCategories))
+}
+
+// SeedDefaultBankAccounts populates the database with default bank accounts
+func SeedDefaultBankAccounts() {
+	var count int64
+	DB.Model(&models.BankAccount{}).Count(&count)
+
+	if count > 0 {
+		log.Println("Bank accounts already seeded, skipping...")
+		return
+	}
+
+	defaultBankAccounts := []models.BankAccount{
+		{
+			Name:        "Primary Checking",
+			BankName:    "Chase Bank",
+			AccountType: "checking",
+			Balance:     1000.00,
+			IsActive:    true,
+		},
+		{
+			Name:        "Savings Account",
+			BankName:    "Chase Bank", 
+			AccountType: "savings",
+			Balance:     5000.00,
+			IsActive:    true,
+		},
+	}
+
+	for _, account := range defaultBankAccounts {
+		if err := DB.Create(&account).Error; err != nil {
+			log.Printf("Failed to create bank account %s: %v", account.Name, err)
+		}
+	}
+
+	log.Printf("Seeded %d default bank accounts", len(defaultBankAccounts))
 }
 
 // GetDB returns the database instance

@@ -76,12 +76,47 @@ func main() {
 	// API routes
 	api := app.Group("/api")
 
+	// Bank Account routes
+	bankAccounts := api.Group("/bank-accounts")
+	bankAccounts.Post("/", func(c *fiber.Ctx) error {
+		if database.GetDB() == nil {
+			return c.Status(503).JSON(fiber.Map{"error": "Database not ready"})
+		}
+		return handlers.CreateBankAccount(database.GetDB())(c)
+	})
+	bankAccounts.Get("/", func(c *fiber.Ctx) error {
+		if database.GetDB() == nil {
+			return c.Status(503).JSON(fiber.Map{"error": "Database not ready"})
+		}
+		return handlers.GetBankAccounts(database.GetDB())(c)
+	})
+	bankAccounts.Get("/:id", func(c *fiber.Ctx) error {
+		if database.GetDB() == nil {
+			return c.Status(503).JSON(fiber.Map{"error": "Database not ready"})
+		}
+		return handlers.GetBankAccount(database.GetDB())(c)
+	})
+	bankAccounts.Put("/:id", func(c *fiber.Ctx) error {
+		if database.GetDB() == nil {
+			return c.Status(503).JSON(fiber.Map{"error": "Database not ready"})
+		}
+		return handlers.UpdateBankAccount(database.GetDB())(c)
+	})
+	bankAccounts.Delete("/:id", func(c *fiber.Ctx) error {
+		if database.GetDB() == nil {
+			return c.Status(503).JSON(fiber.Map{"error": "Database not ready"})
+		}
+		return handlers.DeleteBankAccount(database.GetDB())(c)
+	})
+
 	// Transaction routes
 	transactions := api.Group("/transactions")
 	transactions.Post("/", handlers.CreateTransaction)
 	transactions.Post("/bulk", handlers.CreateBulkTransactions)
+	transactions.Post("/transfer", handlers.CreateTransfer)
 	transactions.Delete("/bulk", handlers.DeleteBulkTransactions)
 	transactions.Get("/", handlers.GetTransactions)
+	transactions.Get("/transfers", handlers.GetTransfers)
 	transactions.Get("/aggregate", handlers.GetTransactionsAggregate)
 	transactions.Get("/aggregate-table", handlers.GetTransactionsAggregateTable)
 	transactions.Get("/date-range", handlers.GetTransactionsByDateRange)
@@ -120,6 +155,7 @@ func main() {
 		database.Connect()
 		database.Migrate()
 		database.SeedDefaultCategories()
+		database.SeedDefaultBankAccounts()
 		log.Println("Database initialization completed")
 	}()
 

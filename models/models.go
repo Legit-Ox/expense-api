@@ -72,18 +72,36 @@ func (fd *FlexibleDate) Scan(value interface{}) error {
 	}
 }
 
-// Transaction represents an expense or income transaction
+// BankAccount represents a bank account
+type BankAccount struct {
+	ID            uint           `json:"id" gorm:"primaryKey"`
+	Name          string         `json:"name" gorm:"not null"`
+	AccountNumber string         `json:"account_number"`
+	BankName      string         `json:"bank_name" gorm:"not null"`
+	AccountType   string         `json:"account_type" gorm:"not null;check:account_type IN ('checking', 'savings', 'credit', 'investment', 'other')"`
+	Balance       float64        `json:"balance" gorm:"default:0"`
+	IsActive      bool           `json:"is_active" gorm:"default:true"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
+}
+
+// Transaction represents an expense, income, or transfer transaction
 type Transaction struct {
-	ID            uint         `json:"id" gorm:"primaryKey"`
-	TransactionID string       `json:"transaction_id" gorm:"index"`
-	Amount        float64      `json:"amount" gorm:"not null"`
-	Type          string       `json:"type" gorm:"not null;check:type IN ('expense', 'income')"`
-	CategoryID    uint         `json:"category_id" gorm:"not null"`
-	Category      Category     `json:"category" gorm:"foreignKey:CategoryID"`
-	Description   string       `json:"description" gorm:"not null"`
-	Date          FlexibleDate `json:"date" gorm:"not null"`
-	CreatedAt     time.Time    `json:"created_at"`
-	UpdatedAt     time.Time    `json:"updated_at"`
+	ID                      uint         `json:"id" gorm:"primaryKey"`
+	TransactionID           string       `json:"transaction_id" gorm:"index"`
+	Amount                  float64      `json:"amount" gorm:"not null"`
+	Type                    string       `json:"type" gorm:"not null;check:type IN ('expense', 'income', 'transfer')"`
+	CategoryID              *uint        `json:"category_id"` // Nullable for transfers
+	Category                Category     `json:"category" gorm:"foreignKey:CategoryID"`
+	BankAccountID           uint         `json:"bank_account_id" gorm:"not null"`
+	BankAccount             BankAccount  `json:"bank_account" gorm:"foreignKey:BankAccountID"`
+	DestinationBankAccountID *uint       `json:"destination_bank_account_id"` // For transfers
+	DestinationBankAccount  BankAccount  `json:"destination_bank_account" gorm:"foreignKey:DestinationBankAccountID"`
+	Description             string       `json:"description" gorm:"not null"`
+	Date                    FlexibleDate `json:"date" gorm:"not null"`
+	CreatedAt               time.Time    `json:"created_at"`
+	UpdatedAt               time.Time    `json:"updated_at"`
 }
 
 // Category represents a transaction category
@@ -96,17 +114,32 @@ type Category struct {
 	DeletedAt gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 }
 
+// BankAccountResponse represents the response structure for bank accounts
+type BankAccountResponse struct {
+	ID            uint    `json:"id"`
+	Name          string  `json:"name"`
+	AccountNumber string  `json:"account_number"`
+	BankName      string  `json:"bank_name"`
+	AccountType   string  `json:"account_type"`
+	Balance       float64 `json:"balance"`
+	IsActive      bool    `json:"is_active"`
+}
+
 // TransactionResponse represents the response structure for transactions
 type TransactionResponse struct {
-	ID            uint      `json:"id"`
-	TransactionID string    `json:"transaction_id"`
-	Amount        float64   `json:"amount"`
-	Type          string    `json:"type"`
-	CategoryID    uint      `json:"category_id"`
-	Category      string    `json:"category"`
-	Description   string    `json:"description"`
-	Date          time.Time `json:"date"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID                      uint                  `json:"id"`
+	TransactionID           string                `json:"transaction_id"`
+	Amount                  float64               `json:"amount"`
+	Type                    string                `json:"type"`
+	CategoryID              *uint                 `json:"category_id"`
+	Category                string                `json:"category"`
+	BankAccountID           uint                  `json:"bank_account_id"`
+	BankAccount             BankAccountResponse   `json:"bank_account"`
+	DestinationBankAccountID *uint                `json:"destination_bank_account_id"`
+	DestinationBankAccount  *BankAccountResponse  `json:"destination_bank_account"`
+	Description             string                `json:"description"`
+	Date                    time.Time             `json:"date"`
+	CreatedAt               time.Time             `json:"created_at"`
 }
 
 // CategoryResponse represents the response structure for categories
@@ -196,4 +229,26 @@ type AggregateTableResponse struct {
 		TotalIncome   float64 `json:"total_income"`
 		TotalExpenses float64 `json:"total_expenses"`
 	} `json:"summary"`
+}
+
+// TransferRequest represents a request to create a transfer between accounts
+type TransferRequest struct {
+	Amount                  float64      `json:"amount" validate:"required,gt=0"`
+	BankAccountID           uint         `json:"bank_account_id" validate:"required"`
+	DestinationBankAccountID uint        `json:"destination_bank_account_id" validate:"required"`
+	Description             string       `json:"description" validate:"required"`
+	Date                    FlexibleDate `json:"date" validate:"required"`
+	TransactionID           string       `json:"transaction_id"`
+}
+
+// TransferResponse represents the response for a transfer transaction
+type TransferResponse struct {
+	ID                      uint                 `json:"id"`
+	TransactionID           string               `json:"transaction_id"`
+	Amount                  float64              `json:"amount"`
+	BankAccount             BankAccountResponse  `json:"bank_account"`
+	DestinationBankAccount  BankAccountResponse  `json:"destination_bank_account"`
+	Description             string               `json:"description"`
+	Date                    time.Time            `json:"date"`
+	CreatedAt               time.Time            `json:"created_at"`
 } 
